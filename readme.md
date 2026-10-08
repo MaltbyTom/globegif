@@ -79,3 +79,4 @@ It is highly recommended to run this tool inside a Python virtual environment to
 
 This project is open-source and available under the [MIT License](LICENSE).
 
+Code produced with assistance from Gemini and Claude
