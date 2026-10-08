@@ -19,8 +19,8 @@ Globe GIF Generator Pro is a Python-based desktop utility that converts 2:1 equi
 
 ## 🛠️ Prerequisites
 
-* Python 3.8 or higher.
-* A standard equirectangular map image (ideally exact 2:1 aspect ratio, e.g., 2048x1024).
+* Python 3.9 or higher, with Tkinter. Tkinter ships with the standard Windows and macOS installers; on Debian/Ubuntu install it with `sudo apt install python3-tk`.
+* A standard equirectangular map image (ideally exact 2:1 aspect ratio, e.g., 2048x1024). A sample map, `arda.png`, is included in the repo to try the tool out.
 
 ## 🚀 Installation
 
@@ -28,7 +28,7 @@ It is highly recommended to run this tool inside a Python virtual environment to
 
 1. **Clone or Download the Repository:**
    ```bash
-   git clone https://github.com/yourusername/globegif.git
+   git clone https://github.com/MaltbyTom/globegif.git
    cd globegif
    ```
 
@@ -45,17 +45,17 @@ It is highly recommended to run this tool inside a Python virtual environment to
      ```
 
 3. **Install Dependencies:**
-   The application relies on Matplotlib, Cartopy, Numpy, and Pillow. 
+   The application relies on Matplotlib, Cartopy, NumPy, Pillow, and SciPy (Cartopy needs SciPy to reproject the flat map onto the globe).
    ```bash
-   pip install matplotlib cartopy numpy pillow
+   pip install -r requirements.txt
    ```
    *(Note: Cartopy requires underlying geometry libraries. If standard pip installation fails on your OS, you may need to install pre-compiled binaries via `conda install -c conda-forge cartopy` or download standard Windows wheels).*
 
 ## 🎮 Usage
 
-1. Launch the application from your terminal:
+1. Launch the application from your terminal (with your virtual environment active):
    ```bash
-   python globegif_v2.py
+   python globegif.py
    ```
 2. **Select Input Map:** Choose your 2:1 map image. 
 3. **Configure Camera:** Set your degrees per frame (speed), FPS, and desired tilts.
@@ -65,9 +65,15 @@ It is highly recommended to run this tool inside a Python virtual environment to
 
 ## ⚠️ Troubleshooting
 
+* **My render is slow or my computer runs out of memory.**
+  Frames are held in memory until the file is encoded, so large output sizes combined with small degrees-per-frame values add up quickly (e.g. 2000 px at 3°/frame needs roughly 2 GB). The app warns you above about 1 GB; try a smaller output size or a larger degrees/frame value.
+* **"Aspect Ratio Warning" on my map.**
+  The map should be 2:1 (width twice the height). Other ratios still render, but the globe will look stretched.
+
 * **The edges of my transparent GIF look crunchy/flicker.**
   GIFs only support 1-bit transparency (pixels are either 100% visible or invisible). For perfectly smooth anti-aliased edges on a transparent background, switch the output format to **WebP**.
 
 ## 📄 License
 
 This project is open-source and available under the [MIT License](LICENSE).
+
