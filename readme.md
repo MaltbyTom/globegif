@@ -1,3 +1,5 @@
+![Rotating webp globe with lighting and lat/long lines](rotating_globe.webp)
+
 # Globe GIF Generator Pro
 
 Globe GIF Generator Pro is a Python-based desktop utility that converts 2:1 equirectangular map images into beautiful, rotating 3D globe animations. Built with a responsive Tkinter GUI, it supports advanced cartographic rendering, including axial tilt, day/night directional lighting, and native WebP output.
