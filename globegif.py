@@ -7,10 +7,11 @@ import numpy as np
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading
+import queue
 from PIL import Image, ImageTk
 import os
 
-class GlobeGifAppV2:
+class GlobeGifApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Globe GIF Generator Pro")
@@ -34,9 +35,13 @@ class GlobeGifAppV2:
         self.output_format_var = tk.StringVar(value="GIF")
         
         self.is_rendering = False
-        self.preview_photo = None  
+        self.preview_photo = None
+
+        # Worker thread -> UI thread messages (Tkinter is not thread-safe)
+        self.ui_queue = queue.Queue()
 
         self.setup_ui()
+        self._poll_ui_queue()
 
     def setup_ui(self):
         main_frame = ttk.Frame(self.root, padding="10")
@@ -103,6 +108,20 @@ class GlobeGifAppV2:
         self.generate_btn = ttk.Button(bottom_frame, text="Generate Rotating Globe", command=self.start_generation)
         self.generate_btn.pack(pady=10)
 
+    def _post(self, func, *args):
+        """Called from the worker thread: schedule func(*args) on the UI thread."""
+        self.ui_queue.put((func, args))
+
+    def _poll_ui_queue(self):
+        """Runs on the UI thread: drain pending worker messages."""
+        try:
+            while True:
+                func, args = self.ui_queue.get_nowait()
+                func(*args)
+        except queue.Empty:
+            pass
+        self.root.after(50, self._poll_ui_queue)
+
     def update_output_extension(self, event=None):
         current_path = self.output_path.get()
         if current_path:
@@ -118,10 +137,10 @@ class GlobeGifAppV2:
             ttk.Spinbox(parent, from_=vmin, to=vmax, increment=increment, textvariable=var, width=9).grid(row=row, column=1, sticky=tk.E, padx=5)
 
     def browse_input(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.webp")])
+        file_path = filedialog.askopenfilename(filetypes=[("Image Files", ("*.png", "*.jpg", "*.jpeg", "*.webp"))])
         if file_path:
             try:
-                img = Image.open(file_path)
+                img = Image.open(file_path).convert("RGB")
                 width, height = img.size
                 
                 ratio = width / height
@@ -167,39 +186,65 @@ class GlobeGifAppV2:
             return
         if self.is_rendering: return
 
+        # Transparent frames are all held in memory as RGBA before encoding
+        est_bytes = self.size_var.get() ** 2 * 4 * (360 // self.step_var.get())
+        if est_bytes > 1e9:
+            if not messagebox.askokcancel(
+                "High Memory Use",
+                f"These settings may need roughly {est_bytes / 1e9:.1f} GB of RAM while rendering.\n\n"
+                "Consider a smaller output size or a larger degrees/frame value.\n\nContinue anyway?"
+            ):
+                return
+
         self.is_rendering = True
         self.generate_btn.config(state=tk.DISABLED)
         # Reset progress bar to determinate for the rendering loop
         self.progress.config(mode='determinate', value=0)
-        threading.Thread(target=self.render_loop, daemon=True).start()
 
-    def render_loop(self):
+        # Read every Tk variable here on the UI thread; the worker only sees plain values
+        settings = {
+            "in_file": self.input_path.get(),
+            "out_file": self.output_path.get(),
+            "step_deg": self.step_var.get(),
+            "fps": self.fps_var.get(),
+            "cam_tilt": self.tilt_var.get(),
+            "axial_tilt": self.ecliptic_tilt_var.get(),
+            "size": self.size_var.get(),
+            "show_grid": self.show_grid_var.get(),
+            "grid_step": self.grid_step_var.get(),
+            "apply_lighting": self.lighting_var.get(),
+            "trans_bg": self.transparent_var.get(),
+            "output_format": self.output_format_var.get(),
+        }
+        threading.Thread(target=self.render_loop, args=(settings,), daemon=True).start()
+
+    def render_loop(self, cfg):
         try:
-            in_file = self.input_path.get()
-            out_file = self.output_path.get()
-            step_deg = self.step_var.get()
-            fps = self.fps_var.get()
-            cam_tilt = self.tilt_var.get()
-            axial_tilt = self.ecliptic_tilt_var.get()
-            size = self.size_var.get()
-            
-            show_grid = self.show_grid_var.get()
-            grid_step = self.grid_step_var.get()
-            apply_lighting = self.lighting_var.get()
-            trans_bg = self.transparent_var.get()
-            output_format = self.output_format_var.get()
+            in_file = cfg["in_file"]
+            out_file = cfg["out_file"]
+            step_deg = cfg["step_deg"]
+            fps = cfg["fps"]
+            cam_tilt = cfg["cam_tilt"]
+            axial_tilt = cfg["axial_tilt"]
+            size = cfg["size"]
 
-            img = Image.open(in_file)
+            show_grid = cfg["show_grid"]
+            grid_step = cfg["grid_step"]
+            apply_lighting = cfg["apply_lighting"]
+            trans_bg = cfg["trans_bg"]
+            output_format = cfg["output_format"]
+
+            img = Image.open(in_file).convert("RGB")
             img_data = np.asarray(img)
             frames = []
 
             total_frames = 360 // step_deg
-            self.progress['maximum'] = total_frames
+            self._post(self.progress.config, {'maximum': total_frames})
             
             shadow_mask = self._generate_shadow_mask(size) if apply_lighting else None
 
             for i, lon in enumerate(range(0, 360, step_deg)):
-                self.root.after(0, self.status_var.set, f"Rendering Frame {i+1}/{total_frames} (Lon {lon}°)")
+                self._post(self.status_var.set, f"Rendering Frame {i+1}/{total_frames} (Lon {lon}°)")
                 
                 fig = plt.figure(figsize=(size/100, size/100), dpi=100)
                 fig.patch.set_alpha(0.0) 
@@ -241,12 +286,12 @@ class GlobeGifAppV2:
                 else:
                     frames.append(frame)
                 
-                self.root.after(0, self.progress.config, {'value': i + 1})
+                self._post(self.progress.config, {'value': i + 1})
 
             # Switch UI to bouncing mode during the blocking save operation
-            self.root.after(0, self.status_var.set, f"Encoding {output_format}... (This takes a moment)")
-            self.root.after(0, self.progress.config, {'mode': 'indeterminate'})
-            self.root.after(0, self.progress.start, 10)
+            self._post(self.status_var.set, f"Encoding {output_format}... (This takes a moment)")
+            self._post(self.progress.config, {'mode': 'indeterminate'})
+            self._post(self.progress.start, 10)
             
             is_webp = output_format == "WebP"
             
@@ -264,21 +309,21 @@ class GlobeGifAppV2:
             )
 
             # Revert UI state when done
-            self.root.after(0, self.progress.stop)
-            self.root.after(0, self.progress.config, {'mode': 'determinate', 'value': total_frames})
-            self.root.after(0, self.status_var.set, f"Done! Saved {out_file}")
-            self.root.after(0, messagebox.showinfo, "Success", "Animation generation complete!")
+            self._post(self.progress.stop)
+            self._post(self.progress.config, {'mode': 'determinate', 'value': total_frames})
+            self._post(self.status_var.set, f"Done! Saved {out_file}")
+            self._post(messagebox.showinfo, "Success", "Animation generation complete!")
 
         except Exception as e:
-            self.root.after(0, self.progress.stop)
-            self.root.after(0, self.progress.config, {'mode': 'determinate'})
-            self.root.after(0, self.status_var.set, "Error during generation.")
-            self.root.after(0, messagebox.showerror, "Render Error", str(e))
+            self._post(self.progress.stop)
+            self._post(self.progress.config, {'mode': 'determinate'})
+            self._post(self.status_var.set, "Error during generation.")
+            self._post(messagebox.showerror, "Render Error", str(e))
         finally:
             self.is_rendering = False
-            self.root.after(0, self.generate_btn.config, {'state': tk.NORMAL})
+            self._post(self.generate_btn.config, {'state': tk.NORMAL})
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = GlobeGifAppV2(root)
+    app = GlobeGifApp(root)
     root.mainloop()
