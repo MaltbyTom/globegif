@@ -69,6 +69,7 @@ It is highly recommended to run this tool inside a Python virtual environment to
 
 * **My render is slow or my computer runs out of memory.**
   Frames are held in memory until the file is encoded, so large output sizes combined with small degrees-per-frame values add up quickly (e.g. 2000 px at 3°/frame needs roughly 2 GB). The app warns you above about 1 GB; try a smaller output size or a larger degrees/frame value.
+  
 * **"Aspect Ratio Warning" on my map.**
   The map should be 2:1 (width twice the height). Other ratios still render, but the globe will look stretched.
 
@@ -79,4 +80,6 @@ It is highly recommended to run this tool inside a Python virtual environment to
 
 This project is open-source and available under the [MIT License](LICENSE).
 
-Code produced with assistance from Gemini and Claude
+## Disclaimers and credit: 
+
+AI (Gemini and Claude) was used both in coding and in quick shading the continents I hadn't gotten around to yet in the demo map/globe.  Three of the landmasses are reduced from poster sized maps that I made in Corel, one is reduced from a heavily edited version of an old rpg map from MERP, all shrunk and arranged in blue ocean in Corel.  The original b/w outlines of the continents were proposed in an old issue of Other Minds, blown up and arranged and landscaped (as above) by me.
