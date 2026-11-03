@@ -1,4 +1,6 @@
-![Rotating webp globe with lighting and lat/long lines](rotating_globe.webp)  ![Ringed planet](nenar_globe.webp)
+![Rotating webp globe with lighting and lat/long lines](rotating_globe.webp)  
+
+![Ringed planet](nenar_globe.webp)
 
 # Globe GIF Generator
 
