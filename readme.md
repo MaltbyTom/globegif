@@ -2,9 +2,11 @@
 
 # Globe GIF Generator
 
-![Screenshot of Globe GIF](globegif_screenshot.png)
+![Screenshot of Globe GIF](nenar_globe.webp)
 
 Globe GIF Generator is a Python-based desktop utility that converts 2:1 equirectangular map images into beautiful, rotating 3D globe animations. Built with a responsive Tkinter GUI, it supports advanced cartographic rendering, including axial tilt, day/night directional lighting, and native WebP output.
+
+Now with optional rings for your planets!
 
 ## ✨ Features
 
